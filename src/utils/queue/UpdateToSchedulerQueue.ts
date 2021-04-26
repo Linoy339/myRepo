@@ -1,28 +1,26 @@
 import Bull from "bull"
-import { ActivityRepository, TypeRepository, ParticipantRepository, SensorEventRepository } from "../../repository"
 import { Mutex } from "async-mutex"
-import { ActivityScheduler } from "../../utils/ActivitySchedulerJob"
+import { ActivityScheduler } from "./ActivitySchedulerJob"
 const clientLock = new Mutex()
 
 //Initialise UpdateToSchedulerQueue Queue
 export const UpdateToSchedulerQueue = new Bull("UpdateToScheduler", process.env.REDIS_HOST ?? "")
 
-UpdateToSchedulerQueue.process(async (job: any, done: any) => {
+UpdateToSchedulerQueue.process(async (job, done) => {
   //locking the thread
   const release = await clientLock.acquire()
-
-  //  console.log(`locked job on ${job.data.activity_id}`)
+  console.log(`locked job on ${job.data.activity_id}`)
   try {
     await ActivityScheduler(job.data.activity_id)
-    //console.log(`processed ${job.data.activity_id}`)
+    console.log(`processed ${job.data.activity_id}`)
     //release the lock for thread
     release()
-    //    console.log(`release lock  on success  ${job.data.activity_id}`)
+    console.log(`release lock  on success  ${job.data.activity_id}`)
   } catch (error) {
     //release the lock for thread
-    //    release()
+    release()
     console.log(`released job on exception- ${job.data.activity_id}`)
   }
   done()
-  //  console.log(`completed job on ${job.data.activity_id}`)
+  console.log(`completed job on ${job.data.activity_id}`)
 })
