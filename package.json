@@ -4,7 +4,7 @@
   "bin": "build/app.js",
   "dependencies": {
     "ajv": "^7.1.1",
-    "async-mutex": "^0.2.4",
+    "async-mutex": "^0.3.1",
     "bull": "^3.18.0",
     "cors": "^2.8.5",
     "express": "^4.17.1",
