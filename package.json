@@ -5,7 +5,7 @@
   "dependencies": {
     "ajv": "^7.1.1",
     "async-mutex": "^0.2.4",
-    "bull": "^3.18.0",
+    "bull": "^3.22.0",
     "cors": "^2.8.5",
     "express": "^4.17.1",
     "ioredis": "^4.22.0",
