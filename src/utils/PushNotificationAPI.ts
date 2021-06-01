@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { Request, Response, Router } from "express"
+import { SensorEventRepository, ParticipantRepository, TypeRepository } from "../repository"
 import { PushNotificationQueue } from "../utils/queue/PushNotificationQueue"
-import { Repository } from "../repository/Bootstrap"
 
 export const PushNotificationAPI = Router()
 
@@ -67,11 +67,10 @@ activity based : send notifications to all participants for activities given
 *
 */
 PushNotificationAPI.post("/notifications", async (req: Request, res: Response) => {
+
   let scheduleTime: any = ""
   let responseMsg: any = { status: true, error: false }
-  const repo = new Repository()
-  const TypeRepository = repo.getTypeRepository()
-  const ParticipantRepository = repo.getParticipantRepository()
+console.log("GAD|PHQ|UCLA|PSS",req.body)
   if (undefined !== req.body.schedule) {
     //take schedule time from request
     scheduleTime = req.body.schedule
@@ -88,6 +87,7 @@ PushNotificationAPI.post("/notifications", async (req: Request, res: Response) =
 
   //processing request
   switch (req.body.type) {
+
     //Participant based- Prepare notifications to participants given
     case "participants":
       try {
@@ -96,10 +96,10 @@ PushNotificationAPI.post("/notifications", async (req: Request, res: Response) =
           break
         }
         //send notifications to the participants given
-        sendToParticipants(Participants, scheduleTime)
+  sendToParticipants(Participants, scheduleTime)
         res.status(200).json(responseMsg)
-      } catch (error) {
-        res.status(parseInt(error.message.split(".")[0]) || 500).json({ error: error.message })
+	} catch (error) {
+       res.status(parseInt(error.message.split(".")[0]) || 500).json({ error: error.message })
       }
       break
 
@@ -120,7 +120,8 @@ PushNotificationAPI.post("/notifications", async (req: Request, res: Response) =
           const newParticipants = await prepareParticipants(Participants, title, message, study)
           //send notifications to participants of given study
           sendToParticipants(newParticipants, scheduleTime)
-        } catch (error) {
+	  } catch (error) {
+
           console.log("Error fetching participants")
         }
       }
@@ -149,8 +150,9 @@ PushNotificationAPI.post("/notifications", async (req: Request, res: Response) =
           const newParticipants = await prepareParticipants(Participants, title, message, activityID)
           //send notifications to participants for given activity
           sendToParticipants(newParticipants, scheduleTime)
-        } catch (error) {
-          console.log("Error fetching participants")
+	  } catch (error) {
+	  
+	  console.log("Error fetching participants")
         }
       }
       res.status(200).json(responseMsg)
@@ -159,20 +161,19 @@ PushNotificationAPI.post("/notifications", async (req: Request, res: Response) =
 
     default:
       break
-  }
-})
-
+      }
+      
+      })
 /**
  *
  * @param Participants
  * @param schedule
  */
 async function sendToParticipants(Participants: any, schedule: any): Promise<void> {
-  Participants = Array.isArray(Participants) ? Participants : [Participants]
+console.log("processing notifictaion")      
+	Participants = Array.isArray(Participants) ? Participants : [Participants]
   for (const participant of Participants) {
     try {
-      const repo = new Repository()
-      const SensorEventRepository = repo.getSensorEventRepository()
       const event_data = await SensorEventRepository._select(
         participant.participant_id,
         "lamp.analytics",
@@ -182,16 +183,15 @@ async function sendToParticipants(Participants: any, schedule: any): Promise<voi
       )
       if (event_data.length !== 0) {
         const filteredArray: any = await event_data.filter(
-          (x: any) =>
-            x.data.type === undefined &&
-            x.data.action !== "notification" &&
-            x.data.device_type !== "Dashboard" &&
-            x.data.action !== "logout"
+          (x) => x.data.type===undefined && x.data.action !== "notification" && x.data.device_type !== "Dashboard" && x.data.action !== "logout"
         )
-        if (filteredArray.length !== 0) {
+	if (filteredArray.length !== 0) {
+	console.log("all",filteredArray)
           const events: any = filteredArray[0]
           const device = undefined !== events && undefined !== events.data ? events.data : undefined
-          if (device !== undefined && (device.device_type || device.device_token || participant.title)) {
+	  if (device !== undefined && (device.device_type || device.device_token || participant.title)) {
+          console.log("PartId", participant.participant_id)  
+	  console.log("device",device)
             //Schedule the notifications for the time given
             if (schedule !== "" && schedule !== undefined) {
               if (new Date(schedule) > new Date()) {
@@ -205,10 +205,12 @@ async function sendToParticipants(Participants: any, schedule: any): Promise<voi
                 const PushNotificationQueueJob = await PushNotificationQueue.getJob(jobId)
                 //Remove the job, if one with same job id exists
                 if (null !== PushNotificationQueueJob) {
-                  await PushNotificationQueueJob?.remove()
-                }
+		                  await PushNotificationQueueJob?.remove()
+				 
+				  }
+
                 //add to PushNotificationQueue with schedule
-                PushNotificationQueue.add(
+ PushNotificationQueue.add(
                   {
                     device_type: device.device_type.toLowerCase(),
                     device_token: device.device_token,
@@ -219,14 +221,16 @@ async function sendToParticipants(Participants: any, schedule: any): Promise<voi
                     },
                   },
                   {
-                    jobId: jobId,
+		   jobId: jobId,
                     attempts: 3,
                     backoff: 10,
                     removeOnComplete: true,
                     removeOnFail: true,
                     delay: Math.floor(new Date(schedule).getTime() - new Date().getTime()),
                   }
-                )
+		  )
+  
+		  
               }
             } else {
               //add to PushNotificationQueue without schedule(immediate push would happen)

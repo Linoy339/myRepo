@@ -1,69 +1,38 @@
 import { Request, Response, Router } from "express"
 import { SensorSpec } from "../model/SensorSpec"
-import { _verify } from "./Security"
-const jsonata = require("../utils/jsonata") // FIXME: REPLACE THIS LATER WHEN THE PACKAGE IS FIXED
-import { Repository } from "../repository/Bootstrap"
+import { SensorSpecRepository } from "../repository/SensorSpecRepository"
+import { SecurityContext, ActionContext, _verify } from "./Security"
+import jsonata from "jsonata"
 
-export class SensorSpecService {
-  public static _name = "SensorSpec"
-  public static Router = Router()
-
-  public static async list(auth: any, parent_id: null) {
-    const SensorSpecRepository = new Repository().getSensorSpecRepository()
-    const _ = await _verify(auth, ["self", "sibling", "parent"])
-    return await SensorSpecRepository._select()
-  }
-
-  public static async create(auth: any, parent_id: null, sensor_spec: any) {
-    const SensorSpecRepository = new Repository().getSensorSpecRepository()
-    const _ = await _verify(auth, ["self", "sibling", "parent"])
-    return await SensorSpecRepository._insert(sensor_spec)
-  }
-
-  public static async get(auth: any, sensor_spec_id: string) {
-    const SensorSpecRepository = new Repository().getSensorSpecRepository()
-    const _ = await _verify(auth, ["self", "sibling", "parent"])
-    return await SensorSpecRepository._select(sensor_spec_id)
-  }
-
-  public static async set(auth: any, sensor_spec_id: string, sensor_spec: any | null) {
-    const SensorSpecRepository = new Repository().getSensorSpecRepository()
-    const _ = await _verify(auth, [])
-    if (sensor_spec === null) {
-      return await SensorSpecRepository._delete(sensor_spec_id)
-    } else {
-      return await SensorSpecRepository._update(sensor_spec_id, sensor_spec)
-    }
-  }
-}
-
-SensorSpecService.Router.post("/sensor_spec", async (req: Request, res: Response) => {
+export const SensorSpecService = Router()
+SensorSpecService.post("/sensor_spec", async (req: Request, res: Response) => {
   try {
-    res.json({ data: await SensorSpecService.create(req.get("Authorization"), null, req.body) })
+    const sensor_spec = req.body
+    const _ = await _verify(req.get("Authorization"), ["self", "sibling", "parent"])
+    const output = { data: await SensorSpecRepository._insert(sensor_spec) }
+    res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-SensorSpecService.Router.put("/sensor_spec/:sensor_spec_name", async (req: Request, res: Response) => {
+SensorSpecService.put("/sensor_spec/:sensor_spec_name", async (req: Request, res: Response) => {
   try {
-    res.json({ data: await SensorSpecService.set(req.get("Authorization"), req.params.sensor_spec_name, req.body) })
+    const sensor_spec_name = req.params.sensor_spec_name
+    const sensor_spec = req.body
+    const _ = await _verify(req.get("Authorization"), ["self", "sibling", "parent"])
+    const output = { data: await SensorSpecRepository._update(sensor_spec_name, sensor_spec) }
+    res.json(output)
   } catch (e) {
     if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-SensorSpecService.Router.delete("/sensor_spec/:sensor_spec_name", async (req: Request, res: Response) => {
+SensorSpecService.delete("/sensor_spec/:sensor_spec_name", async (req: Request, res: Response) => {
   try {
-    res.json({ data: await SensorSpecService.set(req.get("Authorization"), req.params.sensor_spec_name, null) })
-  } catch (e) {
-    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
-    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
-  }
-})
-SensorSpecService.Router.get("/sensor_spec/:sensor_spec_name", async (req: Request, res: Response) => {
-  try {
-    let output = { data: await SensorSpecService.get(req.get("Authorization"), req.params.sensor_spec_name) }
+    const sensor_spec_name = req.params.sensor_spec_name
+    const _ = await _verify(req.get("Authorization"), ["self", "sibling", "parent"])
+    let output = { data: await SensorSpecRepository._delete(sensor_spec_name) }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {
@@ -71,9 +40,22 @@ SensorSpecService.Router.get("/sensor_spec/:sensor_spec_name", async (req: Reque
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
-SensorSpecService.Router.get("/sensor_spec", async (req: Request, res: Response) => {
+SensorSpecService.get("/sensor_spec/:sensor_spec_name", async (req: Request, res: Response) => {
   try {
-    let output = { data: await SensorSpecService.list(req.get("Authorization"), null) }
+    const sensor_spec_name = req.params.sensor_spec_name
+    const _ = await _verify(req.get("Authorization"), ["self", "sibling", "parent"])
+    let output = { data: await SensorSpecRepository._select(sensor_spec_name) }
+    output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
+    res.json(output)
+  } catch (e) {
+    if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
+    res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
+  }
+})
+SensorSpecService.get("/sensor_spec", async (req: Request, res: Response) => {
+  try {
+    const _ = await _verify(req.get("Authorization"), ["self", "sibling", "parent"])
+    let output = { data: await SensorSpecRepository._select() }
     output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
     res.json(output)
   } catch (e) {

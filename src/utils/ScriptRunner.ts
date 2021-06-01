@@ -1,4 +1,3 @@
-/*
 import { Stream } from "stream"
 import _Docker from "dockerode"
 import tar from "tar-stream"
@@ -15,9 +14,14 @@ export const Docker = new _Docker({ host: "localhost", port: 2375 })
 //console.dir(await ((new ScriptRunner.JS()).execute('console.log(\'testing\'); return "hi";', '', '')))
 //console.dir(await ((new ScriptRunner.Bash()).execute('echo "Hello World"', '', '')))
 
+/**
+ *
+ */
 export abstract class ScriptRunner {
-  // Create a simple sequential task queue to manage script invocations.
-  // FIXME: It's concurrent. :(
+  /**
+   * Create a simple sequential task queue to manage script invocations.
+   * FIXME: It's concurrent. :(
+   */
   static queue = {
     _running: false,
     _store: <Array<() => Promise<void>>>[],
@@ -39,8 +43,14 @@ export abstract class ScriptRunner {
     },
   }
 
+  /**
+   *
+   */
   public abstract async execute(script: string, requirements: string, input: any): Promise<any>
 
+  /**
+   *
+   */
   public static Bash = class extends ScriptRunner {
     async execute(script: string, requirements: string, input: any): Promise<any> {
       return new Promise((resolve, reject) =>
@@ -103,7 +113,9 @@ export abstract class ScriptRunner {
     }
   }
 
-  // RScript @ Ubuntu 18.04 LTS + R 3.5.1
+  /**
+   * RScript @ Ubuntu 18.04 LTS + R 3.5.1
+   */
   public static R = class extends ScriptRunner {
     async execute(script: string, requirements: string, input: any): Promise<any> {
       const Dockerfile = `
@@ -291,13 +303,19 @@ export abstract class ScriptRunner {
       )
     }
   }
-  
+
+  /**
+   *
+   */
   public static Py = class extends ScriptRunner {
     async execute(script: string, requirements: string, input: any): Promise<any> {
       throw Error("Unimplemented ScriptRunner!")
     }
   }
 
+  /**
+   *
+   */
   public static JS = class extends ScriptRunner {
     async execute(script: string, requirements: string, input: any): Promise<any> {
       return new Promise((resolve, reject) =>
@@ -318,6 +336,9 @@ export abstract class ScriptRunner {
   }
 }
 
+/**
+ *
+ */
 const containerExec = (container: _Docker.Container, shellCommand: string): Promise<Buffer> => {
   return new Promise((resolve, error) => {
     container.exec(
@@ -340,6 +361,9 @@ const containerExec = (container: _Docker.Container, shellCommand: string): Prom
   })
 }
 
+/**
+ *
+ */
 const makeTar = (data: { [filename: string]: any }, dirPrefix = ""): tar.Pack => {
   const pack = tar.pack()
   for (const x of Object.entries(data))
@@ -348,6 +372,9 @@ const makeTar = (data: { [filename: string]: any }, dirPrefix = ""): tar.Pack =>
   return pack
 }
 
+/**
+ *
+ */
 const getFileInTar = async (tarStream: NodeJS.ReadableStream, filename: string): Promise<Buffer> => {
   return new Promise((resolve, reject) => {
     const extract = tar.extract()
@@ -363,6 +390,9 @@ const getFileInTar = async (tarStream: NodeJS.ReadableStream, filename: string):
   })
 }
 
+/**
+ *
+ */
 const systemDocker = async (command: string, options: _Docker.ContainerCreateOptions): Promise<Buffer> => {
   const container = await Docker.createContainer(options)
   await container.start()
@@ -371,4 +401,8 @@ const systemDocker = async (command: string, options: _Docker.ContainerCreateOpt
   await container.remove({ force: true })
   return output
 }
-*/
+
+/**
+ * `await delay(x)`
+ */
+const delay = (t: number) => new Promise((resolve) => setTimeout(resolve, t))
