@@ -1,11 +1,11 @@
 import Bull from "bull"
-import { removeActivityJobs } from "./ActivitySchedulerJob"
+import { removeActivityJobs } from "../../utils/ActivitySchedulerJob"
 import { Mutex } from "async-mutex"
 //Initialise UpdateToSchedulerQueue Queue
 export const DeleteFromSchedulerQueue = new Bull("DeleteFromScheduler", process.env.REDIS_HOST ?? "")
 const clientLock = new Mutex()
 //Consume jobs from DeleteFromSchedulerQueue
-DeleteFromSchedulerQueue.process(async (job, done) => {
+DeleteFromSchedulerQueue.process(async (job: any, done: any) => {
   const release = await clientLock.acquire()
   console.log(`locked job on ${job.data.activity_id}`)
   try {

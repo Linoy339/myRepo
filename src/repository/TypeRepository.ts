@@ -1,21 +1,18 @@
-import { Database } from "../Bootstrap"
-import { DynamicAttachment } from "../../model"
-//import { ScriptRunner } from "../../utils"
-import { TypeInterface } from "../interface/RepositoryInterface"
-import { Repository } from "../../repository/Bootstrap"
+import { Database } from "../app"
+import { DynamicAttachment } from "../model"
+import { ScriptRunner } from "../utils"
+
 // FIXME: Support application/json;indent=:spaces format mime type!
 
-export class TypeRepository implements TypeInterface {
-  public async _parent(type_id: string): Promise<{}> {
+export class TypeRepository {
+  public static async _parent(type_id: string): Promise<{}> {
     const result: any = {} // obj['#parent'] === [null, undefined] -> top-level object
-    const repo = new Repository()
-    const TypeRepository = repo.getTypeRepository()
     for (const parent_type of await TypeRepository._parent_type(type_id))
       result[parent_type] = await TypeRepository._parent_id(type_id, parent_type)
     return result
   }
 
-  public async _self_type(type_id: string): Promise<string> {
+  public static async _self_type(type_id: string): Promise<string> {
     try {
       await Database.use("participant").head(type_id)
       return "Participant"
@@ -39,7 +36,7 @@ export class TypeRepository implements TypeInterface {
     return "__broken_id__"
   }
 
-  public async _owner(type_id: string): Promise<string | null> {
+  public static async _owner(type_id: string): Promise<string | null> {
     try {
       return ((await Database.use("participant").get(type_id)) as any)["#parent"]
     } catch (e) {}
@@ -59,7 +56,7 @@ export class TypeRepository implements TypeInterface {
     return null
   }
 
-  public async _parent_type(type_id: string): Promise<string[]> {
+  public static async _parent_type(type_id: string): Promise<string[]> {
     const parent_types: { [type: string]: string[] } = {
       Researcher: [],
       Study: ["Researcher"],
@@ -67,12 +64,10 @@ export class TypeRepository implements TypeInterface {
       Activity: ["Study", "Researcher"],
       Sensor: ["Study", "Researcher"],
     }
-    const repo = new Repository()
-    const TypeRepository = repo.getTypeRepository()
     return parent_types[await TypeRepository._self_type(type_id)]
   }
 
-  public async _parent_id(type_id: string, type: string): Promise<string> {
+  public static async _parent_id(type_id: string, type: string): Promise<string> {
     const self_type: { [type: string]: Function } = {
       Researcher: Researcher_parent_id,
       Study: Study_parent_id,
@@ -80,12 +75,10 @@ export class TypeRepository implements TypeInterface {
       Activity: Activity_parent_id,
       Sensor: Sensor_parent_id,
     }
-    const repo = new Repository()
-    const TypeRepository = repo.getTypeRepository()
     return await (self_type[await TypeRepository._self_type(type_id)] as any)(type_id, type)
   }
 
-  public async _set(mode: any, type: string, type_id: string, key: string, value?: any): Promise<{}> {
+  public static async _set(mode: any, type: string, type_id: string, key: string, value?: any): Promise<{}> {
     const deletion = value === undefined || value === null
     const existing = (
       await Database.use("tag").find({
@@ -112,7 +105,7 @@ export class TypeRepository implements TypeInterface {
         const data = await Database.use("tag").bulk({
           docs: [{ ...existing[0], value }],
         })
-        if (data.filter((x: any) => !!x.error).length > 0) throw new Error()
+        if (data.filter((x) => !!x.error).length > 0) throw new Error()
       } catch (e) {
         console.error(e)
         throw new Error("400.update-failed")
@@ -123,7 +116,7 @@ export class TypeRepository implements TypeInterface {
         const data = await Database.use("tag").bulk({
           docs: [{ ...existing[0], _deleted: true }],
         })
-        if (data.filter((x: any) => !!x.error).length > 0) throw new Error()
+        if (data.filter((x) => !!x.error).length > 0) throw new Error()
       } catch (e) {
         console.error(e)
         throw new Error("400.deletion-failed")
@@ -132,9 +125,7 @@ export class TypeRepository implements TypeInterface {
     return {}
   }
 
-  public async _get(mode: any, type_id: string, attachment_key: string): Promise<any | undefined> {
-    const repo = new Repository()
-    const TypeRepository = repo.getTypeRepository()
+  public static async _get(mode: any, type_id: string, attachment_key: string): Promise<any | undefined> {
     const self_type = await TypeRepository._self_type(type_id)
     const parents = Object.values(await TypeRepository._parent(type_id)).reverse()
 
@@ -168,9 +159,7 @@ export class TypeRepository implements TypeInterface {
     throw new Error("404.object-not-found")
   }
 
-  public async _list(mode: any, type_id: string): Promise<string[]> {
-    const repo = new Repository()
-    const TypeRepository = repo.getTypeRepository()
+  public static async _list(mode: any, type_id: string): Promise<string[]> {
     const self_type = await TypeRepository._self_type(type_id)
     const parents = Object.values(await TypeRepository._parent(type_id)).reverse()
 
@@ -199,7 +188,7 @@ export class TypeRepository implements TypeInterface {
           selector: condition as any,
           limit: 2_147_483_647 /* 32-bit INT_MAX */,
         })
-        console.dir(value)
+      
         all_keys = [...all_keys, ...value.docs.map((x: any) => x.key as any)]
       } catch (error) {
         console.error(error, `Failed to search Tag index for ${condition["#parent"]}:${condition.type}.`)
@@ -213,7 +202,7 @@ export class TypeRepository implements TypeInterface {
     else throw new Error("404.object-not-found")
   }
 
-  /*public async _invoke(attachment: DynamicAttachment, context: any): Promise<any | undefined> {
+  public static async _invoke(attachment: DynamicAttachment, context: any): Promise<any | undefined> {
     if ((attachment.contents || "").trim().length === 0) return undefined
     // Select script runner for the right language...
     let runner: ScriptRunner
@@ -235,9 +224,9 @@ export class TypeRepository implements TypeInterface {
     }
     // Execute script.
     return await runner.execute(attachment.contents!, attachment.requirements!.join(","), context)
-  }*/
+  }
 
-  /*public  async _process_triggers(): Promise<void> {
+  /*public static async _process_triggers(): Promise<void> {
     // FIXME: THIS FUNCTION IS DEPRECATED/OUT OF DATE/DISABLED (!!!)
     console.log("Processing accumulated attachment triggers...")
 

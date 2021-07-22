@@ -1,9 +1,8 @@
-import { Database, uuid } from "../Bootstrap"
-import { Study } from "../../model/Study"
-import { StudyInterface } from "../interface/RepositoryInterface"
+import { Database, uuid } from "../app"
+import { Study } from "../model/Study"
 
-export class StudyRepository implements StudyInterface {
-  public async _select(id: string | null, parent = false): Promise<Study[]> {
+export class StudyRepository {
+  public static async _select(id: string | null, parent: boolean = false): Promise<Study[]> {
     return (
       await Database.use("study").find({
         selector: id === null ? {} : { [parent ? "#parent" : "_id"]: id },
@@ -19,7 +18,7 @@ export class StudyRepository implements StudyInterface {
       timestamp: undefined,
     }))
   }
-  public async _insert(researcher_id: string, object: Study): Promise<string> {
+  public static async _insert(researcher_id: string, object: Study): Promise<string> {
     const _id = uuid()
     await Database.use("study").insert({
       _id: _id,
@@ -29,12 +28,12 @@ export class StudyRepository implements StudyInterface {
     } as any)
     return _id
   }
-  public async _update(study_id: string, object: Study): Promise<{}> {
+  public static async _update(study_id: string, object: Study): Promise<{}> {
     const orig: any = await Database.use("study").get(study_id)
     await Database.use("study").bulk({ docs: [{ ...orig, name: object.name ?? orig.name }] })
     return {}
   }
-  public async _delete(study_id: string): Promise<{}> {
+  public static async _delete(study_id: string): Promise<{}> {
     const orig: any = await Database.use("study").get(study_id)
     await Database.use("study").bulk({ docs: [{ ...orig, _deleted: true }] })
     return {}

@@ -1,24 +1,17 @@
-import { SchedulerQueue } from "./SchedulerQueue"
-import { SchedulerReferenceQueue } from "./SchedulerReferenceQueue"
-import { Repository } from "../../repository/Bootstrap"
+import { ActivityRepository, TypeRepository, ParticipantRepository, SensorEventRepository } from "../repository"
+import { SchedulerQueue } from "../utils/queue/SchedulerQueue"
+import { SchedulerReferenceQueue } from "../utils/queue/SchedulerReferenceQueue"
 import { Mutex } from "async-mutex"
 const clientLock = new Mutex()
 /// List activities for a given ID; if a Participant ID is not provided, undefined = list ALL.
 export const ActivityScheduler = async (id?: string): Promise<void> => {
-  console.log("Preparing to fetch activities")
-  const repo = new Repository()
-  const ActivityRepository = repo.getActivityRepository()
-  const TypeRepository = repo.getTypeRepository()
-  const ParticipantRepository = repo.getParticipantRepository()
-  const SensorEventRepository = repo.getSensorEventRepository()
-  console.log("Fetching activities and their schedules")
   const activities: any[] =
-    id === undefined ? await ActivityRepository._select(null,false,true) : await ActivityRepository._select(id,false,true)
-  console.log("activity_id given", id)
-  console.log("Saving to redis")
-  console.log(`Processing ${activities.length} activities for push notifications.`)
+    id === undefined ? await ActivityRepository._select(null) : await ActivityRepository._select(id)
+    //  console.log("activity_id given", id)
+  //  console.log("Saving to redis")
+  //  console.log(`Processing ${activities.length} activities for push notifications.`)
   const release = await clientLock.acquire()
-  console.log(`locked job on activity_scheduler`)
+  //  console.log(`locked job on activity_scheduler`)
   // Process activities to find schedules and corresponding participants.
   for (const activity of activities) {
     try {
@@ -26,7 +19,7 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
         //remove all jobs created for the an activity from queue
         await removeActivityJobs(activity.id)
       }
-      console.log("actvityId", activity.id)
+      //      console.log("actvityId", activity.id)
       // If the activity has no schedules, ignore it.
       if (activity.schedule.length === 0) continue
       // Get all the participants of the study that the activity belongs to.
@@ -46,7 +39,7 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
         console.log("Error fetching participants by study")
         continue
       }
-      console.log("participantslength", participants.length)
+      //      console.log("participantslength", participants.length)
       if (participants.length === 0) continue
       const Participants: any[] = []
       for (const participant of participants) {
@@ -61,13 +54,13 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
           )
           if (event_data.length === 0) continue
           const filteredArray: any = await event_data.filter(
-            (x: any) =>
-              x.data.type === undefined && x.data.action !== "notification" && x.data.device_type !== "Dashboard"
+            (x) => (x.data.type===undefined &&  x.data.action !== "notification" && x.data.device_type !== "Dashboard")
           )
           if (filteredArray.length === 0) continue
           const events: any = filteredArray[0]
           const device = undefined !== events && undefined !== events.data ? events.data : undefined
-
+	  console.log("participantID",participant.id)
+	   console.log("device",device)
           if (device === undefined || device.device_token === undefined) continue
           //take Device_Tokens and ParticipantIDs
           if (participant.id && device.device_token && device.device_type) {
@@ -90,13 +83,11 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
 
           const cronStr = schedule.repeat_interval !== "none" ? await getCronScheduleString(schedule) : ""
           if (schedule.repeat_interval !== "custom") {
-            const notification_id = !!schedule.notification_ids ? schedule.notification_ids[0] : undefined
             const scheduler_payload: any = {
               title: activity.name,
               message: `You have a mindLAMP activity waiting for you: ${activity.name}.`,
               activity_id: activity.id,
               participants: await removeDuplicateParticipants(Participants),
-              notificationIds: notification_id,
             }
 
             let SchedulerjobResponse: any = ""
@@ -146,14 +137,8 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
               }
             }
           } else {
-            const notification_id = !!schedule.notification_ids ? schedule.notification_ids : undefined
             //As the custom time might appear as multiple, process it seperately
-            const activity_details: {} = {
-              name: activity.name,
-              activity_id: activity.id,
-              cronStr: cronStr,
-              notificationIds: notification_id,
-            }
+            const activity_details: {} = { name: activity.name, activity_id: activity.id, cronStr: cronStr }
             await setCustomSchedule(activity_details, Participants)
           }
         }
@@ -254,22 +239,18 @@ function getCronScheduleString(schedule: any): string {
 async function setCustomSchedule(activity: any, Participants: string[]): Promise<any> {
   //split and get individual cron string
   let cronArr = activity.cronStr.split("|")
-  const notificationIds = activity.notificationIds
-  let count = 0
 
   for (const cronCustomString of cronArr) {
     if (undefined !== cronCustomString && "" !== cronCustomString) {
       //custom schedules may occur in multiple times and also need to run daily.
       if (activity.activity_id) {
-        const notification_id = !!notificationIds[count] ? notificationIds[count] : undefined
         const scheduler_payload: any = {
           title: activity.name,
           message: `You have a mindLAMP activity waiting for you: ${activity.name}.`,
           activity_id: activity.activity_id,
           participants: await removeDuplicateParticipants(Participants),
-          notificationIds: notification_id,
         }
-        //add to schedular queue
+        //add to schedular queue        
         try {
           const SchedulerjobResponse = await SchedulerQueue.add(scheduler_payload, {
             removeOnComplete: true,
@@ -307,7 +288,6 @@ async function setCustomSchedule(activity: any, Participants: string[]): Promise
           console.log(`"error scheduling custom job-${error}"`)
         }
       }
-      count++
     }
   }
 }
@@ -356,7 +336,9 @@ export async function updateDeviceDetails(activityIDs: any, device_details: any)
           device_token: device_details.device_token,
           device_type: device_details.device_type.toLowerCase(),
         }
-      : undefined
+	: undefined
+
+	//	console.log("login-device updation",Device)
   //Initialise array to store scheduler details to be updated
   const SheduleToUpdate: any = []
 
@@ -394,6 +376,8 @@ export async function updateDeviceDetails(activityIDs: any, device_details: any)
     } else {
       //only for login
       if (device_details.mode !== 2) {
+      console.log("login activity udpation",activityID)
+      //      console.log("Device==",Device);
         await ActivityScheduler(activityID)
       }
     }
@@ -421,7 +405,6 @@ export async function updateDeviceDetails(activityIDs: any, device_details: any)
           message: SchedulerJob?.data.message,
           activity_id: SchedulerJob?.data.activity_id,
           participants: await removeDuplicateParticipants(newParticipants),
-          notificationIds: SchedulerJob?.data.notificationIds??undefined
         }
 
         //update scheduler with new participant

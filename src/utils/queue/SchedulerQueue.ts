@@ -1,13 +1,14 @@
 import Bull from "bull"
 import fetch from "node-fetch"
-import { ActivityScheduler, removeDuplicateParticipants } from "./ActivitySchedulerJob"
+import { ActivityScheduler, removeDuplicateParticipants } from "../../utils/ActivitySchedulerJob"
 import { Mutex } from "async-mutex"
+import { TypeRepository, SensorEventRepository } from "../../repository"
 const clientLock = new Mutex()
 //Initialise Scheduler Queue
 export const SchedulerQueue = new Bull("Scheduler", process.env.REDIS_HOST ?? "")
 
 //Consume job from Scheduler
-SchedulerQueue.process(async (job, done) => {
+SchedulerQueue.process(async (job: any, done: any) => {
   const data: any = job.data
   try {
     //removing duplicate device token (if any)
@@ -16,14 +17,31 @@ SchedulerQueue.process(async (job, done) => {
       const device_type = device.device_type
       const device_token = device.device_token
       const participant_id = device.participant_id
-      if (undefined !== device_token && undefined !== device_type && undefined !== participant_id) {
-        sendNotification(device_token, device_type, {
+      let shouldSend:any=true
+        try {
+	const notificationSettings = await TypeRepository._get("a",participant_id,"to.unityhealth.psychiatry.settings")
+	console.log("notificationSettings",notificationSettings)
+	// console.log("notificationSettings.notif",notificationSettings.notification)
+	//	console.log("partId",participant_id )
+          if(!notificationSettings.notification) {
+            shouldSend=false
+          }
+        } catch (error) {
+
+	}
+	//	console.log("device_token",device_token )
+	//	console.log("devicetype",device_type)
+	//	console.log("partId",participant_id)
+	//	console.log("shouldSend",shouldSend)
+
+      if (undefined !== device_token && undefined !== device_type && undefined !== participant_id && shouldSend) {
+      //console.log("sent to..", participant_id );
+      sendNotification(device_token, device_type, {
           participant_id: participant_id,
           activity_id: data.activity_id,
           message: data.message,
           title: data.title,
-          url: `/participant/${participant_id}/activity/${data.activity_id}`,
-          notificationId: !!data.notificationIds ? data.notificationIds : undefined,
+          url:`/participant/${participant_id}/activity/${data.activity_id}`
         })
       }
     }
@@ -49,157 +67,265 @@ SchedulerQueue.on("completed", async (job) => {
 })
 
 /// Send to device with payload and device token given.
-export function sendNotification(device_token: string, device_type: string, payload: any): void {
+export async  function sendNotification(device_token: string, device_type: string, payload: any): Promise<void> {
   console.dir({ device_token, device_type, payload })
   // Send this specific page URL to the device to show the actual activity.
   // eslint-disable-next-line prettier/prettier
   const url = payload.url
-  const notificationId = !!payload.notificationId ? payload.notificationId : Math.floor(Math.random() * 1000000) + 1
-  const gatewayURL: any = !!process.env.APP_GATEWAY
-    ? `https://${process.env.APP_GATEWAY}/push`
-    : `${process.env.PUSH_GATEWAY}`
-  const gatewayApiKey: any = !!process.env.PUSH_API_KEY
-    ? `${process.env.PUSH_API_KEY}`
-    : `${process.env.PUSH_GATEWAY_APIKEY}`
-  console.log(url)
-  try {
-    if ("undefined" === gatewayURL) {
-      throw new Error("Push gateway address is not defined")
-    }
-    if ("undefined" === gatewayApiKey) {
-      throw new Error("Push gateway apikey is not defined")
-    }
-    switch (device_type) {
-      case "android.watch":
-      case "android":
-        try {
-          const opts: any = {
-            push_type: "gcm",
-            api_key: gatewayApiKey,
-            device_token: device_token,
-            payload: {
-              priority: "high",
-              data: {
-                title: `${payload.title}`,
-                message: `${payload.message}`,
-                page: `${url}`,
-                notificationId: notificationId,
-                actions: [{ name: "Open App", page: `${process.env.DASHBOARD_URL}` }],
-                expiry: 21600000,
-              },
-            },
-          }
-          //connect to api gateway and send notifications
-          fetch(gatewayURL, {
-            method: "post",
-            body: JSON.stringify(opts),
-            headers: { "Content-Type": "application/json" },
-          })
-            .then((res) => {
-              if (!res.ok) {
-                throw new Error(`HTTP error! status`)
-              }
-            })
-            .catch((e) => {
-              console.log("Error encountered sending GCM push notification.")
-            })
-        } catch (error) {
-          console.log(`"Error encountered sending GCM push notification"-${error}`)
-        }
-        break
+  //  const notificationId =(Math.floor(Math.random() * 10000) + 1) + new Date().getTime()
+ const notificationId =  Math.floor(Math.random() * 1000000) + 1
+  const gatewayURL:any = !!process.env.APP_GATEWAY ? `https://${process.env.APP_GATEWAY}/push` : `${process.env.PUSH_GATEWAY}`
+  const gatewayApiKey:any = !!process.env.PUSH_API_KEY ? `${process.env.PUSH_API_KEY}`  : `${process.env.PUSH_GATEWAY_APIKEY}`
 
-      case "ios":
-        try {
-          //preparing curl request
-          const opts: any = {
-            push_type: "apns",
-            api_key: gatewayApiKey,
-            device_token: device_token,
-            payload: {
-              aps: {
-                alert: `${payload.message}`,
-                badge: 0,
-                sound: "default",
-                "mutable-content": 1,
-                "content-available": 1,
-                "push-type": "alert",
-                "collapse-id": `${notificationId}`,
-                expiration: 10,
-              },
-              notificationId: `${notificationId}`,
-              expiry: 21600000,
-              page: `${url}`,
-              actions: [{ name: "Open App", page: `${url}` }],
-            },
-          }
-
-          //connect to api gateway and send notifications
-          fetch(gatewayURL, {
-            method: "post",
-            body: JSON.stringify(opts),
-            headers: { "Content-Type": "application/json" },
-          })
-            .then((res) => {
-              console.log("response", res)
-              if (!res.ok) {
-                throw new Error(`HTTP error!`)
-              }
-            })
-            .catch((e) => {
-              console.log(`"Error encountered sending APN push notification."--${e}`)
-            })
-        } catch (error) {
-          console.log(`"Error encountered sending APN push notification"-${error}`)
-        }
-        break
-
-      case "ios.watch":
-        try {
-          //preparing curl request
-          const opts: any = {
-            push_type: "apns",
-            api_key: gatewayApiKey,
-            device_token: device_token,
-            payload: {
-              aps: {
-                alert: `${payload.message}`,
-                badge: 0,
-                sound: "default",
-                "mutable-content": 1,
-                "content-available": 1,
-                "push-type": "background",
-                "collapse-id": `${notificationId}`,
-                expiration: 10,
-              },
-              notificationId: `${notificationId}`,
-              expiry: 21600000,
-              page: `${url}`,
-              actions: [{ name: "Open App", page: `${url}` }],
-            },
-          }
-          //connect to api gateway and send notifications
-          fetch(gatewayURL, {
-            method: "post",
-            body: JSON.stringify(opts),
-            headers: { "Content-Type": "application/json" },
-          })
-            .then((res) => {
-              console.log("response", res)
-              if (!res.ok) {
-                throw new Error(`HTTP error!`)
-              }
-            })
-            .catch((e) => {
-              console.log(`"Error encountered sending APN push notification."--${e}`)
-            })
-        } catch (error) {
-          console.log(`"Error encountered sending APN push notification"-${error}`)
-        }
-        break
-      default:
-        break
-    }
-  } catch (error) {
-    console.log(error.message)
+  //console.log(url)
+try {
+  if("undefined"=== gatewayURL) {
+    throw new Error("Push gateway address is not defined")
   }
+  if("undefined"=== gatewayApiKey) {
+     throw new Error("Push gateway apikey is not defined")
+  }
+  switch (device_type) {
+    case "android.watch":
+    case "android":
+      try {
+        const opts: any = {
+          push_type: "gcm",
+          api_key: gatewayApiKey,
+          device_token: device_token,
+          payload: {
+            priority: "high",
+            data: {
+              title: `${payload.title}`,
+              message: `${payload.message}`,
+              page: `${url}`,
+              notificationId: notificationId,
+              actions: [{ name: "Open App", page: `${process.env.DASHBOARD_URL}` }],
+              expiry:21600000,
+            },
+          },
+        }
+        //connect to api gateway and send notifications
+        fetch('http://192.168.96.137:3003/push', {
+          method: "post",
+          body: JSON.stringify(opts),
+          headers: { "Content-Type": "application/json" },
+        })
+          .then((res) => {
+            if (!res.ok) {
+              throw new Error(`HTTP error! status`)
+	      }else{
+	      console.log("Error sending notifications.....")
+	      }
+          })
+          .catch((e) => {
+            console.log("Error encountered sending GCM push notification.")
+          })
+      } catch (error) {
+        console.log(`"Error encountered sending GCM push notification"-${error}`)
+      }
+      break
+
+    case "ios":
+      try {
+        //preparing curl request
+        const opts: any = {
+          push_type: "apns",               
+          api_key:gatewayApiKey,
+          device_token: device_token,
+          payload: {
+            aps: {
+              alert: `${payload.message}`,
+              badge: 0,
+              sound: "default",
+              "mutable-content": 1,
+              "content-available": 1,
+              "push-type":"alert",
+              "collapse-id":`${notificationId}`,
+              "expiration":10
+            },  
+            notificationId: `${notificationId}`,
+            expiry: 21600000,          
+            page: `${url}`,
+            actions: [{ name: "Open App", page: `${url}` }],
+          }
+        }
+
+        // Collect the Participant's device token, if there is one saved.
+          const event_data = await SensorEventRepository._select(
+            payload.participant_id,
+            "lamp.analytics",
+            undefined,
+            undefined,
+            1000
+          )
+          let appVersion:any =''
+          if (event_data.length !== 0) {
+          const filteredArray: any = await event_data.filter(
+            (x) => (x.data.type === undefined && x.data.action !== "notification" && x.data.device_type !== "Dashboard")
+          )
+                     console.log('filteredArray',filteredArray)
+          if (filteredArray.length !== 0) {
+          const events: any = filteredArray[0]
+	  const device = undefined !== events && undefined !== events.data ? events.data : undefined
+	  console.log("device121212",device)
+            if (device !== undefined ) {
+             appVersion = device.user_agent
+          }
+        }
+        }
+        //for new
+        console.log("appVersion",appVersion);
+
+
+          console.log("appVersion",appVersion);
+        let appVersion_:any=''
+        if(''!==appVersion )  {
+          appVersion_= appVersion.split(',')[0]
+	  }
+	  console.log("appVer--==",appVersion);
+	if("1.0"===appVersion_.trim())  {console.log("newversion")
+                         //connect to api gateway and send notifications
+        fetch('http://192.168.96.137:3003/push', {
+          method: "post",
+          body: JSON.stringify(opts),
+          headers: { "Content-Type": "application/json" },
+        })
+          .then((res) => {
+            if (!res.ok) {
+              throw new Error(`HTTP error!`)
+            }
+          })
+	  .catch((e) => {console.log("e1",e)
+            console.log("Error encountered sending APN push notification.")
+          })
+
+
+
+
+	  }else {console.log("oldversion");
+	  console.log("url gatewy used",gatewayURL);
+
+        //connect to api gateway and send notifications
+        fetch(gatewayURL, {
+          method: "post",
+          body: JSON.stringify(opts),
+          headers: { "Content-Type": "application/json" },
+        })
+          .then((res) => {
+            if (!res.ok) {
+              throw new Error(`HTTP error!`)
+	      }else{
+	      console.log("sent --success")
+	      }
+          })
+          .catch((e) => {console.log("e",e)
+            console.log("Error encountered sending APN push notification.")
+	    })
+	    }
+      } catch (error) {console.log("error",error)
+        console.log(`"Error encountered sending APN push notification"-${error}`)
+      }
+      break
+    case "ios.watch":
+      try {
+        //preparing curl request
+        const opts: any = {
+          push_type: "apns",          
+          api_key: gatewayApiKey,
+          device_token: device_token,
+          payload: {
+            aps: {
+              alert: `${payload.message}`,
+              badge: 0,
+              sound: "default",
+              "mutable-content": 1,
+              "content-available": 1,
+              "push-type":"background",
+              "collapse-id":`${notificationId}`,
+              "expiration":10
+            },  
+            notificationId: `${notificationId}`,
+	    
+	    
+	    
+            expiry:21600000,            
+            page: `${url}`,
+            actions: [{ name: "Open App", page: `${url}` }],
+          }
+	  }
+	   // Collect the Participant's device token, if there is one saved.
+          const event_data = await SensorEventRepository._select(
+            payload.participant_id,
+            "lamp.analytics",
+            undefined,
+            undefined,
+            1000
+          )
+          let appVersion:any =''
+          if (event_data.length !== 0) {
+          const filteredArray: any = await event_data.filter(
+            (x) => (x.data.type === undefined && x.data.action !== "notification" && x.data.device_type !== "Dashboard")
+          )
+console.log('filteredArray',filteredArray);
+          if (filteredArray.length !== 0) {
+          const events: any = filteredArray[0]
+	  const device = undefined !== events && undefined !== events.data ? events.data : undefined
+	  console.log('2121212devic',device)
+          if (device !== undefined ) {
+             appVersion = device.user_agent
+          }
+        }
+        }
+        //for new
+        console.log("appVersion",appVersion);
+        let appVersion_:any=''
+        if(''!==appVersion )  {
+          appVersion_= appVersion.split(',')[0]
+        }
+        console.log("appVer--==",appVersion);
+        if("1.0"===appVersion_.trim())  {
+            //connect to api gateway and send notifications
+        fetch('http://192.168.96.137:3003/push', {
+          method: "post",
+          body: JSON.stringify(opts),
+          headers: { "Content-Type": "application/json" },
+        })
+          .then((res) => {
+            if (!res.ok) {
+              throw new Error(`HTTP error!`)
+            }
+          })
+          .catch((e) => {
+            console.log("Error encountered sending APN push notification.")
+          })
+
+
+	  }else{
+        //connect to api gateway and send notifications
+        fetch(gatewayURL, {
+          method: "post",
+          body: JSON.stringify(opts),
+          headers: { "Content-Type": "application/json" },
+        })
+          .then((res) => {
+            if (!res.ok) {
+              throw new Error(`HTTP error!`)
+            }
+          })
+          .catch((e) => {
+            console.log("Error encountered sending APN push notification.")
+	    })
+	    }
+      } catch (error) {
+        console.log(`"Error encountered sending APN push notification"-${error}`)
+      }
+      break
+    default:
+      break
+      }
+      } catch (error) {
+  console.log(error.message)
+
+}
 }
