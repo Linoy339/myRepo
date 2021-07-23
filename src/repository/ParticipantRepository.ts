@@ -12,7 +12,7 @@ export class ParticipantRepository {
       })
     ).docs.map((doc: any) => ({
       id: doc._id,
-      isVerified:!!doc.isVerified ? doc.isVerified:true
+      isVerified:doc.isVerified!==undefined ? doc.isVerified:true
     }))
          
    } catch (error) {    
@@ -47,7 +47,16 @@ export class ParticipantRepository {
   }
   // eslint-disable-next-line
   public static async _update(participant_id: string, object: Participant): Promise<{}> {
-    throw new Error("503.unimplemented")
+    const orig: any = await Database.use("participant").get(participant_id)
+    await Database.use("participant").bulk({
+      docs: [
+        {
+          ...orig,
+          isVerified: object.isVerified
+        },
+      ],
+    })
+    return {}
   }
   public static async _delete(participant_id: string): Promise<{}> {
     try {
