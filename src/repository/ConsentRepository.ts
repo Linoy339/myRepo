@@ -2,9 +2,28 @@ import { Database, uuid } from "../app"
 import { Consent } from "../model/Consent"
 
 export class ConsentRepository {
-  public static async _select(id: string | null, parent: boolean = false): Promise<Consent[]> {
-    throw new Error("503.unimplemented")
-  }
+    public static async _select(id: string | null, parent: boolean = false): Promise<Consent[]> {
+        try {               
+         return (
+           await Database.use("consent").find({
+             selector:{ _id:id},
+             sort: [{ timestamp: "asc" }],
+             limit: 2_147_483_647 /* 32-bit INT_MAX */,
+           })
+         ).docs.map((doc: any) => ({
+            id: doc._id,
+            ...doc,
+            _id: undefined,
+            _rev: undefined,
+            "#parent": undefined,
+            timestamp: undefined,
+         }))
+              
+        } catch (error) {    
+            console.log('error',error)
+         return []
+       }
+       }
   // eslint-disable-next-line
   public static async _insert(study_id: string, object: Consent): Promise<any> {
     //if (study_id === undefined) throw new Error("404.study-does-not-exist") // FIXME

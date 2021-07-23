@@ -2,6 +2,7 @@ import { Request, Response, Router } from "express"
 import { ParticipantRepository } from "../repository/ParticipantRepository"
 import { ConsentRepository } from "../repository/ConsentRepository"
 import { SecurityContext, ActionContext, _verify } from "./Security"
+import jsonata from "jsonata"
 import { EmailQueue } from "../utils/queue/EmailQueue"
 export const ConsentService = Router()
 ConsentService.post("/consent/:study_id/participant", async (req: Request, res: Response) => {
@@ -50,4 +51,17 @@ ConsentService.put("/consent/:participant_id", async (req: Request, res: Respons
     res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
   }
 })
+
+ConsentService.get("/consent/:participant_id", async (req: Request, res: Response) => {
+    try {
+      let participant_id = req.params.participant_id
+      participant_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], participant_id)
+      let output = { data: await ConsentRepository._select(participant_id) }
+      output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
+      res.json(output)
+    } catch (e) {
+      if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
+      res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
+    }
+  })
 // TODO: activity/* and sensor/* entry
