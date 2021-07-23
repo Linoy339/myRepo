@@ -20,8 +20,8 @@ UpdateToSchedulerQueue.process(async (job: any, done: any) => {
     //    console.log(`release lock  on success  ${job.data.activity_id}`)
   } catch (error) {
     //release the lock for thread
-    //    release()
-    console.log(`released job on exception- ${job.data.activity_id}`)
+      release()
+      console.log(`released job on exception- ${job.data.activity_id}`)
   }
   done()
   //  console.log(`completed job on ${job.data.activity_id}`)

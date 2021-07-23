@@ -30,7 +30,16 @@ export class ConsentRepository {
   }
   // eslint-disable-next-line
   public static async _update(participant_id: string, object: Consent): Promise<{}> {
-    throw new Error("503.unimplemented")
+    const orig: any = await Database.use("consent").get(participant_id)
+    await Database.use("consent").bulk({
+      docs: [
+        {
+          ...orig,
+          isVerified: object.isVerified
+        },
+      ],
+    })
+    return {}
   }
   public static async _delete(participant_id: string): Promise<{}> {
     throw new Error("503.unimplemented")

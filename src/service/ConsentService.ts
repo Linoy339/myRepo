@@ -1,11 +1,8 @@
 import { Request, Response, Router } from "express"
-import { Participant } from "../model/Participant"
 import { ParticipantRepository } from "../repository/ParticipantRepository"
 import { ConsentRepository } from "../repository/ConsentRepository"
 import { SecurityContext, ActionContext, _verify } from "./Security"
-import jsonata from "jsonata"
-import { TypeRepository } from "../repository"
-import { PubSubAPIListenerQueue } from "../utils/queue/PubSubAPIListenerQueue"
+import { EmailQueue } from "../utils/queue/EmailQueue"
 export const ConsentService = Router()
 ConsentService.post("/consent/:study_id/participant", async (req: Request, res: Response) => {
   try {
@@ -17,6 +14,10 @@ ConsentService.post("/consent/:study_id/participant", async (req: Request, res: 
     output= { data: await ParticipantRepository._insert(study_id, participant) }
     participant.participant_id =  output['data'].id    
     await ConsentRepository._insert(study_id, participant)
+    EmailQueue.add({"origin":participant.participant_id,
+                    "access_key":`${participant.participant_id}@lamp.com`,
+                    "secret_key":participant.participant_id,"description":"Temporary Login",
+                    isVerified:participant.isVerified})  
     participant.study_id = study_id
     participant.action = "create"
     } else {
@@ -34,9 +35,14 @@ ConsentService.put("/consent/:participant_id", async (req: Request, res: Respons
     const participant = req.body
     participant_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], participant_id)
     const output = { data: await ParticipantRepository._update(participant_id, participant) }
-    participant.participant_id = participant_id
-    participant.action = "update"
+    await ConsentRepository._update(participant_id, participant)    
+    EmailQueue.add({"origin":participant_id,
+                    "access_key":`${participant_id}@lamp.com`,
+                    "secret_key":participant_id,"description":"Temporary Login",
+                    isVerified:participant.isVerified})       
+    
 
+   
     
     res.json(output)
   } catch (e) {
