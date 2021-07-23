@@ -3,6 +3,7 @@ import { Participant } from "../model/Participant"
 
 export class ParticipantRepository {
   public static async _select(id: string | null, parent: boolean = false): Promise<Participant[]> {
+   try {   
     return (
       await Database.use("participant").find({
         selector: id === null ? {} : { [parent ? "#parent" : "_id"]: id },
@@ -11,18 +12,33 @@ export class ParticipantRepository {
       })
     ).docs.map((doc: any) => ({
       id: doc._id,
+      isVerified:!!doc.isVerified ? doc.isVerified:true
     }))
+         
+   } catch (error) {    
+    return []
+  }
   }
   // eslint-disable-next-line
   public static async _insert(study_id: string, object: Participant): Promise<any> {
-    const _id = numeric_uuid()
+    const _id = numeric_uuid()    
     //if (study_id === undefined) throw new Error("404.study-does-not-exist") // FIXME
     try {
+      if(undefined!==object.isVerified) {
       await Database.use("participant").insert({
         _id: _id,
-        "#parent": study_id,
+        "#parent": study_id,    
+        isVerified:object.isVerified,        
         timestamp: new Date().getTime(),
       } as any)
+      
+    } else {
+      await Database.use("participant").insert({
+        _id: _id,
+        "#parent": study_id,         
+        timestamp: new Date().getTime(),
+      } as any)
+    }
     } catch (e) {
       console.error(e)
       throw new Error("500.participant-creation-failed")

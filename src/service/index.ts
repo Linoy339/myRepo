@@ -11,6 +11,7 @@ import { ActivityEventService } from "./ActivityEventService"
 import { SensorService } from "./SensorService"
 import { SensorSpecService } from "./SensorSpecService"
 import { SensorEventService } from "./SensorEventService"
+import { ConsentService } from "./ConsentService"
 
 import jsonata from "jsonata"
 import { _verify } from "../service/Security"
@@ -111,6 +112,7 @@ API.use(ActivityEventService)
 API.use(SensorService)
 API.use(SensorSpecService)
 API.use(SensorEventService)
+API.use(ConsentService)
 
 const ListenerAPIs = Router()
 ListenerAPIs.use(ListenerAPI)

@@ -746,6 +746,78 @@ export async function _bootstrap_db(Database: nano.ServerScope): Promise<void> {
     })
   }
   console.log("Tag database online.")
+  if (!_db_list.includes("consent")) {
+    console.log("Initializing Consent database...")
+    await Database.db.create("consent")
+    Database.use("consent").bulk({
+      docs: [
+        {
+          _id: "_design/timestamp-index",
+          language: "query",
+          views: {
+            timestamp: {
+              map: {
+                fields: {
+                  timestamp: "asc",
+                },
+                partial_filter_selector: {},
+              },
+              reduce: "_count",
+              options: {
+                def: {
+                  fields: ["timestamp"],
+                },
+              },
+            },
+          },
+        },
+        {
+          _id: "_design/parent-timestamp-index",
+          language: "query",
+          views: {
+            "parent-timestamp": {
+              map: {
+                fields: {
+                  "#parent": "asc",
+                  timestamp: "asc",
+                },
+                partial_filter_selector: {},
+              },
+              reduce: "_count",
+              options: {
+                def: {
+                  fields: ["#parent", "timestamp"],
+                },
+              },
+            },
+          },
+        },
+        {
+          _id: "_design/id-parent-timestamp-index",
+          language: "query",
+          views: {
+            "id-parent-timestamp": {
+              map: {
+                fields: {
+                  _id: "asc",
+                  "#parent": "asc",
+                  timestamp: "asc",
+                },
+                partial_filter_selector: {},
+              },
+              reduce: "_count",
+              options: {
+                def: {
+                  fields: ["_id", "#parent", "timestamp"],
+                },
+              },
+            },
+          },
+        },
+      ],
+    })
+  }
+  console.log("Consent database online.")
   console.groupEnd()
   console.log("Database verification complete.")
 }
