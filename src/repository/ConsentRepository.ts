@@ -6,7 +6,7 @@ export class ConsentRepository {
         try {               
          return (
            await Database.use("consent").find({
-             selector:{ _id:id},
+             selector: id === null ? {} : { [parent ? "#parent" : "_id"]: id },
              sort: [{ timestamp: "asc" }],
              limit: 2_147_483_647 /* 32-bit INT_MAX */,
            })
