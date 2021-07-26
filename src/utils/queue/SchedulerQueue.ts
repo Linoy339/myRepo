@@ -11,14 +11,19 @@ export const SchedulerQueue = new Bull("Scheduler", process.env.REDIS_HOST ?? ""
 SchedulerQueue.process(async (job: any, done: any) => {
   const data: any = job.data
   try {
-    if (job.data.start_date === undefined || new Date() >= job.data.start_date ) {
+    let start_notify=true
+    if(job.data.start_date !== undefined) {
+      if(new Date(job.data.start_date).getTime() > new Date().getTime())
+      start_notify=false
+    }
+    if (start_notify) {
     //removing duplicate device token (if any)
     const uniqueParticipants = await removeDuplicateParticipants(data.participants)
     for (const device of uniqueParticipants) {
       const device_type = device.device_type
       const device_token = device.device_token
       const participant_id = device.participant_id
-      let shouldSend:any=true
+      let shouldSend=true
         try {
 	const notificationSettings = await TypeRepository._get("a",participant_id,"to.unityhealth.psychiatry.settings")
 	console.log("notificationSettings",notificationSettings)
