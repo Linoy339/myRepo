@@ -12,7 +12,8 @@ export class ParticipantRepository {
       })
     ).docs.map((doc: any) => ({
       id: doc._id,
-      isVerified:doc.isVerified!==undefined ? doc.isVerified:true
+      isVerified:doc.isVerified!==undefined ? doc.isVerified:true,
+      consent:doc.consent!==undefined ? doc.consent:false
     }))
          
    } catch (error) {    

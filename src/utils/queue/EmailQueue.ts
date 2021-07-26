@@ -1,5 +1,5 @@
 import Bull from "bull"
-import nodemailer from "nodemailer"
+// import nodemailer from "nodemailer"
 import { CredentialRepository} from "../../repository"
 import { Mutex } from "async-mutex"
 const clientLock = new Mutex()
