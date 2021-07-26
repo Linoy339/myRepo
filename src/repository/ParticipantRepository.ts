@@ -28,7 +28,8 @@ export class ParticipantRepository {
       await Database.use("participant").insert({
         _id: _id,
         "#parent": study_id,    
-        isVerified:object.isVerified,        
+        isVerified:object.isVerified,   
+        consent:object.isVerified===undefined?undefined:true,
         timestamp: new Date().getTime(),
       } as any)
       

@@ -11,6 +11,7 @@ export const SchedulerQueue = new Bull("Scheduler", process.env.REDIS_HOST ?? ""
 SchedulerQueue.process(async (job: any, done: any) => {
   const data: any = job.data
   try {
+    if (job.data.start_date === undefined || new Date() >= job.data.start_date ) {
     //removing duplicate device token (if any)
     const uniqueParticipants = await removeDuplicateParticipants(data.participants)
     for (const device of uniqueParticipants) {
@@ -45,6 +46,7 @@ SchedulerQueue.process(async (job: any, done: any) => {
         })
       }
     }
+  }
   } catch (error) {}
   done()
 })

@@ -1,7 +1,9 @@
 import { Request, Response, Router } from "express"
 import { ParticipantRepository } from "../repository/ParticipantRepository"
+import { ResearcherRepository } from "../repository/ResearcherRepository"
+import { StudyRepository } from "../repository/StudyRepository"
 import { ConsentRepository } from "../repository/ConsentRepository"
-import { SecurityContext, ActionContext, _verify } from "./Security"
+import { SecurityContext, ActionContext, _verify } from "./SecurityGuest"
 import jsonata from "jsonata"
 import { EmailQueue } from "../utils/queue/EmailQueue"
 export const ConsentService = Router()
@@ -64,4 +66,29 @@ ConsentService.get("/consent/:participant_id", async (req: Request, res: Respons
       res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
     }
   })
+  ConsentService.get("/consent/researcher", async (req: Request, res: Response) => {
+    try {
+      const _ = await _verify(req.get("Authorization"), [])
+      let output = { data: await ResearcherRepository._select() }
+      output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
+      res.json(output)
+    } catch (e) {
+      if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
+      res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
+    }
+  })
+  ConsentService.get("/consent/:researcher_id/study", async (req: Request, res: Response) => {
+    try {
+      let researcher_id = req.params.researcher_id
+      researcher_id = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
+      let output = { data: await StudyRepository._select(researcher_id, true) }
+      output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
+      res.json(output)
+    } catch (e) {
+      if (e.message === "401.missing-credentials") res.set("WWW-Authenticate", `Basic realm="LAMP" charset="UTF-8"`)
+      res.status(parseInt(e.message.split(".")[0]) || 500).json({ error: e.message })
+    }
+  })
+  
+  
 // TODO: activity/* and sensor/* entry

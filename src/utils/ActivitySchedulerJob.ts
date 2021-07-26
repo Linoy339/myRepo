@@ -85,6 +85,7 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
           if (schedule.repeat_interval !== "custom") {
             const scheduler_payload: any = {
               title: activity.name,
+              start_date:(schedule.repeat_interval==='none')?undefined:schedule.start_date,
               message: `You have a mindLAMP activity waiting for you: ${activity.name}.`,
               activity_id: activity.id,
               participants: await removeDuplicateParticipants(Participants),
@@ -114,23 +115,25 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
               }
             }
             // updating ShedulerReference Queue(if already activity_id exists as JobId)
-            const SchedulerReferenceJob = await SchedulerReferenceQueue.getJob(activity.id)
+            const SchedulerReferenceJob = await SchedulerReferenceQueue.getJob(activity.id) || null
             if (null !== SchedulerReferenceJob) {
-              const SchedulerReferenceIds: any = SchedulerReferenceJob.data.scheduler_ref_ids
+              if (!!SchedulerjobResponse.id) {
+              const SchedulerReferenceIds: any = SchedulerReferenceJob.data.scheduler_ref_ids || []
               const existSchedulerId = await SchedulerReferenceIds.filter((referenceId: any) =>
                 referenceId.includes(SchedulerjobResponse.id)
               )
               if (existSchedulerId.length === 0 && undefined === existSchedulerId[0]) {
                 await SchedulerReferenceIds.push(SchedulerjobResponse.id)
-                await SchedulerReferenceJob.update({
+                await SchedulerReferenceJob?.update({
                   scheduler_ref_ids: SchedulerReferenceIds,
                   activity_id: activity.id,
                 })
               }
+            }
             } else {
               //add to scheduler reference queue(as we cannot make custom id for repeatable job, we need a reference of schedular jobids)
               if (SchedulerjobResponse.id != undefined) {
-                await SchedulerReferenceQueue.add(
+                await SchedulerReferenceQueue?.add(
                   { scheduler_ref_ids: [SchedulerjobResponse.id], activity_id: activity.id },
                   { jobId: activity.id }
                 )
@@ -138,7 +141,7 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
             }
           } else {
             //As the custom time might appear as multiple, process it seperately
-            const activity_details: {} = { name: activity.name, activity_id: activity.id, cronStr: cronStr }
+            const activity_details: {} = { name: activity.name, activity_id: activity.id, cronStr: cronStr, start_date: schedule.start_date }
             await setCustomSchedule(activity_details, Participants)
           }
         }
@@ -246,6 +249,7 @@ async function setCustomSchedule(activity: any, Participants: string[]): Promise
       if (activity.activity_id) {
         const scheduler_payload: any = {
           title: activity.name,
+          start_date:activity.start_date,
           message: `You have a mindLAMP activity waiting for you: ${activity.name}.`,
           activity_id: activity.activity_id,
           participants: await removeDuplicateParticipants(Participants),
@@ -259,10 +263,11 @@ async function setCustomSchedule(activity: any, Participants: string[]): Promise
             attempts: 2,
             repeat: { jobId: activity.activity_id, cron: cronCustomString },
           })
-          const SchedulerReferenceJob = await SchedulerReferenceQueue.getJob(activity.activity_id)
+          const SchedulerReferenceJob = await SchedulerReferenceQueue.getJob(activity.activity_id) || null
 
           //updating ShedulerReference Queue, if the activity is not saved (make activity.id as job id)
           if (null !== SchedulerReferenceJob) {
+            if (!!SchedulerjobResponse.id) {
             const SchedulerReferenceIds: any = SchedulerReferenceJob.data.scheduler_ref_ids
             const existSchedulerId = await SchedulerReferenceIds.filter((referenceId: any) =>
               referenceId.includes(SchedulerjobResponse.id)
@@ -270,15 +275,16 @@ async function setCustomSchedule(activity: any, Participants: string[]): Promise
 
             if (existSchedulerId.length === 0 && undefined === existSchedulerId[0]) {
               await SchedulerReferenceIds.push(SchedulerjobResponse.id)
-              await SchedulerReferenceJob.update({
+              await SchedulerReferenceJob?.update({
                 scheduler_ref_ids: SchedulerReferenceIds,
                 activity_id: activity.activity_id,
               })
             }
+          }
           } else {
             //add to scheduler reference queue(as we cannot make custom id for repeatable job, we need a reference of schedular jobids)
-            if (SchedulerjobResponse.id !== undefined) {
-              await SchedulerReferenceQueue.add(
+            if (SchedulerjobResponse?.id !== undefined) {
+              await SchedulerReferenceQueue?.add(
                 { scheduler_ref_ids: [SchedulerjobResponse.id], activity_id: activity.activity_id },
                 { jobId: activity.activity_id }
               )

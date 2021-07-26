@@ -1,6 +1,6 @@
 import { TypeRepository } from "../repository/TypeRepository"
 import { CredentialRepository } from "../repository/CredentialRepository"
-import jwt from 'jsonwebtoken'
+
 export function SecurityContext(): Promise<{ type: string; id: string }> {
   return Promise.resolve({ type: "", id: "" })
 }
@@ -13,27 +13,9 @@ export async function _verify(
   authHeader: string | undefined,
   type: Array<"self" | "sibling" | "parent"> /* 'root' = [] */,
   auth_value?: string
-): Promise<string> {
+): Promise<string> {  
   
-  if(authHeader?.startsWith("Bearer")) {
-    let authVal:any
-    console.log("Its a bearer authentication")
-    const privateKey:any = process.env.JWT_KEY
-    const token= authHeader.split(" ")[1]
-    console.log("tokens",token)
-    try {
-      if(jwt.verify(token,privateKey)) {
-        authVal = auth_value
-        return authVal
-      }
-    } catch (error) {
-      console.log("not verified",error)
-    }
-   
-      
-    
-  }
-		console.dir({authHeader,type,auth_value});      
+		// console.dir({authHeader,type,auth_value});      
 	// Get the authorization components from the header and tokenize them.
 	// TODO: ignoring the other authorization location stuff for n
   const [authStr, cosignData] = CredentialRepository._unpackCosignerData((authHeader ?? "").replace("Basic", "").trim())

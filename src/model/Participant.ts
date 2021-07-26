@@ -9,4 +9,5 @@ export class Participant {
   public emergency_contact?: string
   public helpline?: string  
   public isVerified?: Boolean
+  public consent?: Boolean
 }
