@@ -2,8 +2,26 @@ import { Database, uuid } from "../app"
 import { Consent } from "../model/Consent"
 
 export class ConsentRepository {
-    public static async _select(id: string | null, parent: boolean = false): Promise<Consent[]> {
-        try {               
+    public static async _select(id: string | null, parent: boolean = false,email=false): Promise<Consent[]> {
+        try {  
+          if(email) {
+            return (
+              await Database.use("consent").find({
+                selector:{email:id},
+                sort: [{ timestamp: "asc" }],
+                limit: 2_147_483_647 /* 32-bit INT_MAX */,
+              })
+            ).docs.map((doc: any) => ({
+               id: doc._id,
+               ...doc,
+               _id: undefined,
+               _rev: undefined,
+               "#parent": undefined,
+               timestamp: undefined,
+            }))
+
+          } else {    
+ 
          return (
            await Database.use("consent").find({
              selector: id === null ? {} : { [parent ? "#parent" : "_id"]: id },
@@ -18,7 +36,7 @@ export class ConsentRepository {
             "#parent": undefined,
             timestamp: undefined,
          }))
-              
+        }
         } catch (error) {    
             console.log('error',error)
          return []

@@ -7,6 +7,7 @@ import { SecurityContext as guestSecurityContext, ActionContext as  guestActionC
 import { SecurityContext, ActionContext, _verify } from "./Security"
 import jsonata from "jsonata"
 import { EmailQueue } from "../utils/queue/EmailQueue"
+import { Consent } from "../model/Consent"
 export const ConsentService = Router()
 ConsentService.post("/consent/:study_id/participant", async (req: Request, res: Response) => {
   try {
@@ -15,6 +16,8 @@ ConsentService.post("/consent/:study_id/participant", async (req: Request, res: 
     const participant = req.body
     if(!!participant.email) {
     study_id = await guestVerify(req.get("Authorization"), ["self", "sibling", "parent"], study_id)
+    let existDetails = await ConsentRepository._select(participant.email,false,true)    
+    if(existDetails.length!=0) throw new Error("500.email-already-exists")
     output= { data: await ParticipantRepository._insert(study_id, participant) }
     participant.participant_id =  output['data'].id    
     await ConsentRepository._insert(study_id, participant)
