@@ -3,7 +3,8 @@ import { ParticipantRepository } from "../repository/ParticipantRepository"
 import { ResearcherRepository } from "../repository/ResearcherRepository"
 import { StudyRepository } from "../repository/StudyRepository"
 import { ConsentRepository } from "../repository/ConsentRepository"
-import { SecurityContext, ActionContext, _verify } from "./SecurityGuest"
+import { SecurityContext as guestSecurityContext, ActionContext as  guestActionContext, _verify as guestVerify } from "./SecurityGuest"
+import { SecurityContext, ActionContext, _verify } from "./Security"
 import jsonata from "jsonata"
 import { EmailQueue } from "../utils/queue/EmailQueue"
 export const ConsentService = Router()
@@ -13,7 +14,7 @@ ConsentService.post("/consent/:study_id/participant", async (req: Request, res: 
     let output:any = {}
     const participant = req.body
     if(!!participant.email) {
-    study_id = await _verify(req.get("Authorization"), ["self", "sibling", "parent"], study_id)
+    study_id = await guestVerify(req.get("Authorization"), ["self", "sibling", "parent"], study_id)
     output= { data: await ParticipantRepository._insert(study_id, participant) }
     participant.participant_id =  output['data'].id    
     await ConsentRepository._insert(study_id, participant)
@@ -68,7 +69,7 @@ ConsentService.get("/consent/participant/:participant_id", async (req: Request, 
   })
   ConsentService.get("/consent/researcher", async (req: Request, res: Response) => {
     try {
-      const _ = await _verify(req.get("Authorization"), [])
+      const _ = await guestVerify(req.get("Authorization"), [])
       let output = { data: await ResearcherRepository._select() }
       output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
       res.json(output)
@@ -80,7 +81,7 @@ ConsentService.get("/consent/participant/:participant_id", async (req: Request, 
   ConsentService.get("/consent/:researcher_id/study", async (req: Request, res: Response) => {
     try {
       let researcher_id = req.params.researcher_id
-      researcher_id = await _verify(req.get("Authorization"), ["self", "parent"], researcher_id)
+      researcher_id = await guestVerify(req.get("Authorization"), ["self", "parent"], researcher_id)
       let output = { data: await StudyRepository._select(researcher_id, true) }
       output = typeof req.query.transform === "string" ? jsonata(req.query.transform).evaluate(output) : output
       res.json(output)
