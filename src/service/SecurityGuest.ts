@@ -23,12 +23,13 @@ export async function _verify(
       if(jwt.verify(token,privateKey)) {
         authVal = auth_value        
       }
-      
+      return authVal
     } catch (error) {
         throw new Error("403.invalid-credentials")
     }    
   }
-  return authVal
+  throw new Error("403.invalid-credentials")
+  
 	    
 	
 }
