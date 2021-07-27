@@ -11,10 +11,12 @@ export const SchedulerQueue = new Bull("Scheduler", process.env.REDIS_HOST ?? ""
 SchedulerQueue.process(async (job: any, done: any) => {
   const data: any = job.data
   try {
-    let start_notify=true
-    if(job.data.start_date !== undefined) {
-      if(new Date(job.data.start_date).getTime() > new Date().getTime())
-      start_notify=false
+    let start_notify=true    
+    if(data.start_date !== undefined) {
+      let today = new Date()
+      let start_date = new Date(data.start_date)
+      if(start_date > today)
+       start_notify=false
     }
     if (start_notify) {
     //removing duplicate device token (if any)
