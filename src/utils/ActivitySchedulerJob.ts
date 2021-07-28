@@ -82,10 +82,16 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
             continue
 
           const cronStr = schedule.repeat_interval !== "none" ? await getCronScheduleString(schedule) : ""
+          let startDateExploded = schedule.start_date ? schedule.start_date.split('T'):undefined
+          let TimeExploded =schedule.time ? schedule.time.split('T'):undefined
+          let timHr = TimeExploded[1].split(':')[0]
+          let timMt = TimeExploded[1].split(':')[1]
+          let start_date = `${startDateExploded[0]}T${timHr}:${timMt}:00.000Z`
+          console.log("start_date========",start_date)
           if (schedule.repeat_interval !== "custom") {
             const scheduler_payload: any = {
               title: activity.name,
-              start_date:(schedule.repeat_interval==='none')?undefined:schedule.start_date,
+              start_date:(schedule.repeat_interval==='none')?undefined:start_date,
               message: `You have a mindLAMP activity waiting for you: ${activity.name}.`,
               activity_id: activity.id,
               participants: await removeDuplicateParticipants(Participants),
@@ -141,7 +147,7 @@ export const ActivityScheduler = async (id?: string): Promise<void> => {
             }
           } else {
             //As the custom time might appear as multiple, process it seperately
-            const activity_details: {} = { name: activity.name, activity_id: activity.id, cronStr: cronStr, start_date: schedule.start_date }
+            const activity_details: {} = { name: activity.name, activity_id: activity.id, cronStr: cronStr, start_date: start_date }
             await setCustomSchedule(activity_details, Participants)
           }
         }
@@ -205,6 +211,7 @@ function getCronScheduleString(schedule: any): string {
           feedDateTime < followingDay ? `${feedDateTime.getUTCHours()},` : `${feedDateTime.getUTCHours()}`
 
         cronStr = `${feedMinutesUtc} ${feedUTCNewHours} * * *`
+        console.log("cronStr-every3h",cronStr)
       }
       break
     case "every6h":
