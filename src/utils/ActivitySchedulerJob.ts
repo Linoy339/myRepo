@@ -162,13 +162,14 @@ function getCronScheduleString(schedule: any): string {
   let cronStr = ""
   //feed date time
   const feedDateTime = new Date(schedule.time)
+  const feedStartDateTime = new Date(schedule.start_date)
   const followingDay = new Date(new Date(schedule.time).getTime() + 86400000) // + 1 day in ms
   let feedUTCNewHours = ""
   //get hour,minute,second formatted time from feed date time
   let feedHoursUtc: any = feedDateTime.getUTCHours()
   let feedMinutesUtc: any = feedDateTime.getUTCMinutes()
-  const sheduleDayNumber: number = new Date(feedDateTime).getUTCDay()
-  const sheduleMonthDate: number = new Date(feedDateTime).getUTCDate()
+  const sheduleDayNumber: number = new Date(feedStartDateTime).getUTCDay()
+  const sheduleMonthDate: number = new Date(feedStartDateTime).getUTCDate()
   //prepare cronstring for various schedules
   switch (schedule.repeat_interval) {
     case "triweekly":
