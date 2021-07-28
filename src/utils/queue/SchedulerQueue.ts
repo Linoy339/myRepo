@@ -13,6 +13,20 @@ export async function SchedulerQueueProcess(job: Bull.Job<any>, done: Bull.DoneC
   const data: any = job.data
   try {
     //removing duplicate device token (if any)
+    let start_notify=true    
+    if(data.start_date !== undefined) {
+      let today = new Date().toString()
+      let TimeExploded = today.split('T')
+      let timHr = TimeExploded[1].split(':')[0]
+      let timMt = TimeExploded[1].split(':')[1]
+      let today_date = new Date(`${TimeExploded[0]}T${timHr}:${timMt}:00.000Z`)
+      let start_date = new Date(data.start_date)
+      console.log("today_date while notify",today_date)
+      console.log("start_date while notify",start_date)
+      if(start_date > today_date)
+       start_notify=false
+    }
+    if (start_notify) {
     const uniqueParticipants = await removeDuplicateParticipants(data.participants)
     for (const device of uniqueParticipants) {
       const device_type = device.device_type
@@ -28,6 +42,7 @@ export async function SchedulerQueueProcess(job: Bull.Job<any>, done: Bull.DoneC
           notificationId: !!data.notificationIds ? data.notificationIds : undefined,
         })
       }
+    }
     }
   } catch (error) {}
   done()
