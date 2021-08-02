@@ -191,15 +191,19 @@ try {
         }
         //for new
         console.log("appVersion",appVersion);
-
+    
+        // '1.0, iPhone, 14.4.2'
+        // "DiiG 2021.6.29; iOS 14.3; iPhone iPhone8,1"
+        // "NativeCore 2021.6.29; iOS 14.3; iPhone iPhone8,1"
 
           console.log("appVersion",appVersion);
         let appVersion_:any=''
         if(''!==appVersion )  {
-          appVersion_= appVersion.split(',')[0]
+          appVersion_= appVersion.split(',')[0].trim()
 	  }
 	  console.log("appVer--==",appVersion);
-	if("1.0"===appVersion_.trim())  {console.log("newversion")
+	if("1.0"===appVersion_ || appVersion_.toLowerCase().search('diig')!==-1)  {
+    console.log("newversion")
                          //connect to api gateway and send notifications
         fetch('http://192.168.96.137:3003/push', {
           method: "post",
