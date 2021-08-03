@@ -202,7 +202,7 @@ try {
           appVersion_= appVersion.split(',')[0].trim()
 	  }
 	  console.log("appVer--==",appVersion);
-	if("1.0"===appVersion_ || appVersion_.toLowerCase().search('diig')!==-1)  {
+	if("1.0"===appVersion_ || appVersion.toLowerCase().search('diig')!==-1)  {
     console.log("newversion")
                          //connect to api gateway and send notifications
         fetch('http://192.168.96.137:3003/push', {
@@ -303,7 +303,7 @@ console.log('filteredArray',filteredArray);
           appVersion_= appVersion.split(',')[0]
         }
         console.log("appVer--==",appVersion);
-        if("1.0"===appVersion_.trim())  {
+        if("1.0"===appVersion_ || appVersion.toLowerCase().search('diig')!==-1)  {
             //connect to api gateway and send notifications
         fetch('http://192.168.96.137:3003/push', {
           method: "post",
