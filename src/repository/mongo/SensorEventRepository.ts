@@ -1,6 +1,6 @@
 import { SensorEvent } from "../../model/SensorEvent"
-import { SensorEventModel } from "../../model/SensorEvent"
 import { SensorEventInterface } from "../interface/RepositoryInterface"
+import { MongoClientDB } from "../Bootstrap"
 // FIXME: does not support filtering by Sensor yet.
 
 export class SensorEventRepository implements SensorEventInterface {
@@ -27,35 +27,53 @@ export class SensorEventRepository implements SensorEventInterface {
     if (!!from_date && !!to_date) {
       filteredQuery.timestamp = { $gte: from_date, $lt: from_date === to_date ? to_date! + 1 : to_date }
     }
-    const all_res = await SensorEventModel.find(filteredQuery)
+    const all_res = await MongoClientDB.collection("sensor_event")
+      .find(filteredQuery)
       .sort({ timestamp: !!limit && limit < 0 ? 1 : -1 })
-      .limit(limit ?? 1).maxTimeMS(60000)
+      .limit(limit ?? 1)
+      .maxTimeMS(60000)
+      .toArray()
     return (all_res as any).map((x: any) => ({
-      ...x._doc,
+      ...x,
       _id: undefined,
       __v: undefined,
       _parent: undefined,
-      _deleted: undefined
+      _deleted: undefined,
     }))
   }
+
   public async _insert(participant_id: string, objects: SensorEvent[]): Promise<{}> {
     const data: any[] = []
     //save activity event
     for (const object of objects) {
-      await data.push({
-        ...object,
-        _parent: participant_id,
-        timestamp: Number.parse(object.timestamp),
-        sensor: String(object.sensor),
-        data: object.data ?? {},
-      })
+      try {
+        await MongoClientDB.collection("sensor_event").insertMany([
+          {
+            ...object,
+            _parent: participant_id,
+            timestamp: Number.parse(object.timestamp),
+            sensor: String(object.sensor),
+            data: object.data ?? {},
+          },
+        ])
+      } catch (error) {
+        console.log(error)
+      }
     }
-    try {
-      await SensorEventModel.insertMany(data)
-    } catch (error) {
-      console.error(error)
-    }
+    return {}
+  }
 
+  /** write to db in bulk (argument does not contain participant_id, as participant_id will be present in the array objects given as argument)
+   *
+   * @param objects
+   * @returns
+   */
+  public async _bulkWrite(objects: SensorEvent[]): Promise<{}> {
+    try {
+      await MongoClientDB.collection("sensor_event").insertMany(objects)
+    } catch (error) {
+      console.log(error)
+    }
     return {}
   }
 }

@@ -4,14 +4,15 @@ import { nc, Repository } from "../../repository/Bootstrap"
 import { Mutex } from "async-mutex"
 const clientLock = new Mutex()
 
-//Initialise PubSubAPIListenerQueue Queue
-export const PubSubAPIListenerQueue = new Bull("PubSubAPIListener", process.env.REDIS_HOST ?? "")
-
-PubSubAPIListenerQueue.process(async (job) => {
+/** Queue Process
+ *
+ * @param job
+ */
+export async function PubSubAPIListenerQueueProcess(job: Bull.Job<any>): Promise<void> {
   let publishStatus = true
   const repo = new Repository()
   const TypeRepository = repo.getTypeRepository()
-  const maxPayloadSize = !!process.env.NATS_PAYLOAD_SIZE ? process.env.NATS_PAYLOAD_SIZE : 1047846
+  const maxPayloadSize = 10000000 //1047846
   try {
     //for the participant api changes
     if (
@@ -283,7 +284,7 @@ PubSubAPIListenerQueue.process(async (job) => {
   } catch (error) {
     console.log("Nats server is disconnected")
   }
-})
+}
 
 /** publishing sensor event
  *
