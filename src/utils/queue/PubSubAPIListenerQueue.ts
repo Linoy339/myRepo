@@ -1,7 +1,7 @@
 import Bull from "bull"
 import { setTimeout } from "timers"
 import { connect, NatsConnectionOptions, Payload } from "ts-nats"
-import { TypeRepository, ParticipantRepository } from "../../repository"
+import { ActivityRepository, TypeRepository, ParticipantRepository } from "../../repository"
 //Initialise PubSubAPIListenerQueue Queue
 export const PubSubAPIListenerQueue = new Bull("PubSubAPIListener", process.env.REDIS_HOST ?? "")
 
@@ -79,6 +79,13 @@ PubSubAPIListenerQueue.process(async (job: any) => {
           payload.participant_id = job.data.participant_id
           payload.action = job.data.action
           Data.data = JSON.stringify(payload)
+          const activity_detail = await ActivityRepository._select(payload.activity, false)
+          if (activity_detail.length !== 0) {
+            payload.static_data =
+              !!activity_detail[0].spec && activity_detail[0].spec === "lamp.recording"
+                ? undefined
+                : payload.static_data
+          }
           //form the token for the consumer
           Data.token = `activity.${payload.activity}.participant.${job.data.participant_id}`
 
